@@ -52,39 +52,57 @@
           </el-col>
         </el-row>
 
-        <el-row :gutter="20" style="margin-top: 20px;">
-          <!-- 分类统计 -->
-          <el-col :span="6">
-            <div class="chart-wrapper">
-              <h4>支出分类 (Top 8)</h4>
-              <Doughnut :data="categoryData" :options="doughnutOptions" />
+        <!-- 支出分类统计 -->
+        <div class="chart-row">
+          <div class="chart-section full-width">
+            <div class="chart-header">
+              <h4>支出分类分布 (Top 10)</h4>
+              <el-tag size="small" type="info">{{ categoryStats.length }} 个分类</el-tag>
             </div>
-          </el-col>
-          
-          <!-- 交易类型统计 -->
-          <el-col :span="6">
-            <div class="chart-wrapper">
-              <h4>交易类型分布</h4>
-              <Pie :data="transactionTypeData" :options="pieOptions" />
+            <div class="chart-wrapper extra-large">
+              <Doughnut :data="categoryData" :options="doughnutOptionsLarge" />
             </div>
-          </el-col>
-          
-          <!-- 支付方式统计 -->
-          <el-col :span="6">
-            <div class="chart-wrapper">
-              <h4>支付方式分布</h4>
-              <Pie :data="paymentMethodData" :options="pieOptions" />
+          </div>
+        </div>
+
+        <!-- 交易类型分布 -->
+        <div class="chart-row">
+          <div class="chart-section full-width">
+            <div class="chart-header">
+              <h4>交易类型分布 (Top 10)</h4>
+              <el-tag size="small" type="info">{{ transactionTypeStats.length }} 种类型</el-tag>
             </div>
-          </el-col>
-          
-          <!-- 金额分布 -->
-          <el-col :span="6">
-            <div class="chart-wrapper">
-              <h4>交易金额分布</h4>
-              <Bar :data="amountDistributionData" :options="amountBarOptions" />
+            <div class="chart-wrapper extra-large">
+              <Pie :data="transactionTypeData" :options="pieOptionsLarge" />
             </div>
-          </el-col>
-        </el-row>
+          </div>
+        </div>
+
+        <!-- 支付方式分布 -->
+        <div class="chart-row">
+          <div class="chart-section full-width">
+            <div class="chart-header">
+              <h4>支付方式分布 (Top 10)</h4>
+              <el-tag size="small" type="info">{{ paymentMethodStats.length }} 种方式</el-tag>
+            </div>
+            <div class="chart-wrapper extra-large">
+              <Pie :data="paymentMethodData" :options="pieOptionsLarge" />
+            </div>
+          </div>
+        </div>
+
+        <!-- 交易金额分布 -->
+        <div class="chart-row">
+          <div class="chart-section full-width">
+            <div class="chart-header">
+              <h4>交易金额分布区间</h4>
+              <el-tag size="small" type="info">{{ amountDistributionData.labels.length }} 个区间</el-tag>
+            </div>
+            <div class="chart-wrapper extra-large">
+              <Bar :data="amountDistributionData" :options="amountBarOptionsLarge" />
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 表格视图 -->
@@ -900,6 +918,145 @@ const amountBarOptions = {
   }
 }
 
+// 大尺寸图表选项
+const pieOptionsLarge = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'right',
+      labels: {
+        padding: 20,
+        font: {
+          size: 14
+        },
+        generateLabels: function(chart) {
+          const data = chart.data;
+          if (data.labels.length && data.datasets.length) {
+            return data.labels.map((label, i) => {
+              const dataset = data.datasets[0];
+              const value = dataset.data[i];
+              const total = dataset.data.reduce((sum, val) => sum + val, 0);
+              const percentage = ((value / total) * 100).toFixed(1);
+              return {
+                text: `${label}: ${percentage}%`,
+                fillStyle: dataset.backgroundColor[i],
+                strokeStyle: dataset.borderColor[i],
+                lineWidth: dataset.borderWidth,
+                hidden: false,
+                index: i
+              };
+            });
+          }
+          return [];
+        }
+      }
+    },
+    tooltip: {
+      callbacks: {
+        label: function(context) {
+          const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+          const percentage = ((context.parsed / total) * 100).toFixed(1);
+          return `${context.label}: ¥${context.parsed.toFixed(2)} (${percentage}%)`;
+        }
+      }
+    }
+  }
+}
+
+const doughnutOptionsLarge = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      position: 'right',
+      labels: {
+        padding: 20,
+        font: {
+          size: 14
+        },
+        generateLabels: function(chart) {
+          const data = chart.data;
+          if (data.labels.length && data.datasets.length) {
+            return data.labels.map((label, i) => {
+              const dataset = data.datasets[0];
+              const value = dataset.data[i];
+              const total = dataset.data.reduce((sum, val) => sum + val, 0);
+              const percentage = ((value / total) * 100).toFixed(1);
+              return {
+                text: `${label}: ${percentage}%`,
+                fillStyle: dataset.backgroundColor[i],
+                strokeStyle: dataset.borderColor[i],
+                lineWidth: dataset.borderWidth,
+                hidden: false,
+                index: i
+              };
+            });
+          }
+          return [];
+        }
+      }
+    },
+    tooltip: {
+      callbacks: {
+        label: function(context) {
+          const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+          const percentage = ((context.parsed / total) * 100).toFixed(1);
+          return `${context.label}: ¥${context.parsed.toFixed(2)} (${percentage}%)`;
+        }
+      }
+    }
+  }
+}
+
+const amountBarOptionsLarge = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: false
+    },
+    tooltip: {
+      callbacks: {
+        label: function(context) {
+          return `交易数量: ${context.parsed.y} 笔`;
+        }
+      }
+    }
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      title: {
+        display: true,
+        text: '交易数量',
+        font: {
+          size: 14
+        }
+      },
+      ticks: {
+        font: {
+          size: 12
+        }
+      }
+    },
+    x: {
+      title: {
+        display: true,
+        text: '金额区间 (元)',
+        font: {
+          size: 14
+        }
+      },
+      ticks: {
+        font: {
+          size: 12
+        }
+      }
+    }
+  }
+}
+
 // 辅助函数
 const getPlatformTagType = (platform) => {
   switch (platform) {
@@ -941,6 +1098,57 @@ const getPlatformTagType = (platform) => {
   text-align: center;
   color: #333;
   font-weight: 600;
+}
+
+/* 新的图表布局样式 */
+.chart-row {
+  margin-bottom: 30px;
+}
+
+.chart-section {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+}
+
+.chart-section:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.chart-section.full-width {
+  width: 100%;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 1px solid #dee2e6;
+}
+
+.chart-header h4 {
+  margin: 0;
+  color: #333;
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.chart-wrapper.large {
+  height: 350px;
+  padding: 24px;
+  background: #fff;
+  border-radius: 0;
+}
+
+.chart-wrapper.extra-large {
+  height: 450px;
+  padding: 30px;
+  background: #fff;
+  border-radius: 0;
 }
 
 .tables-container h4 {
