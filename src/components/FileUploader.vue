@@ -82,6 +82,15 @@
             </div>
             <div class="file-result-stats">
               <span class="record-count">{{ result.recordCount }} 条记录</span>
+              <div class="encoding-info" v-if="fileEncodings[result.fileName]">
+                <el-tag 
+                  :type="getEncodingTagType(fileEncodings[result.fileName])" 
+                  size="mini"
+                  class="encoding-tag"
+                >
+                  {{ getEncodingDisplayText(fileEncodings[result.fileName]) }}
+                </el-tag>
+              </div>
             </div>
           </div>
         </el-col>
@@ -269,6 +278,7 @@ const currentPage = ref(1)
 const pageSize = ref(50)
 const parseResults = ref([]) // 存储每个文件的解析结果
 const showTable = ref(false) // 控制明细表格显示
+const fileEncodings = ref({}) // 存储每个文件的编码信息
 
 // 计算属性
 const displayData = computed(() => {
@@ -336,6 +346,7 @@ const clearFiles = () => {
   parsedData.value = []
   columns.value = []
   parseResults.value = []
+  fileEncodings.value = {}
   errorMessage.value = ''
   currentPage.value = 1
 }
@@ -382,10 +393,10 @@ const parseCSV = (text) => {
     return result
   }
 
-  const headers = parseCSVLine(lines[0])
+  const headers = parseCSVLine(lines[22])
   const data = []
 
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = 23; i < lines.length; i++) {
     const values = parseCSVLine(lines[i])
     const row = {}
     
@@ -412,10 +423,10 @@ const parseExcel = (arrayBuffer) => {
     throw new Error('Excel文件为空')
   }
 
-  const headers = jsonData[0].map(header => String(header || ''))
+  const headers = jsonData[16].map(header => String(header || ''))
   const data = []
 
-  for (let i = 1; i < jsonData.length; i++) {
+  for (let i = 17; i < jsonData.length; i++) {
     const row = {}
     headers.forEach((header, index) => {
       row[header] = jsonData[i][index] || ''
@@ -765,13 +776,285 @@ const getFileDisplayName = (fileName) => {
   return fileName
 }
 
-// 文件读取辅助函数
-const readFileAsText = (file) => {
+// 编码检测函数
+const detectEncoding = (buffer) => {
+  const bytes = new Uint8Array(buffer)
+  
+  // 检测BOM (Byte Order Mark)
+  if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+    return 'UTF-8'
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+    return 'UTF-16LE'
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+    return 'UTF-16BE'
+  }
+  
+  // 检测UTF-8编码特征
+  let utf8Score = 0
+  let gbkScore = 0
+  let totalBytes = Math.min(bytes.length, 1000) // 只检查前1000字节
+  
+  for (let i = 0; i < totalBytes; i++) {
+    const byte = bytes[i]
+    
+    // ASCII字符 (0-127)
+    if (byte <= 0x7F) {
+      utf8Score += 1
+      gbkScore += 1
+      continue
+    }
+    
+    // UTF-8 多字节序列检测
+    if (byte >= 0xC0 && byte <= 0xDF && i + 1 < totalBytes) {
+      // 2字节UTF-8序列
+      const next = bytes[i + 1]
+      if (next >= 0x80 && next <= 0xBF) {
+        utf8Score += 3
+        i++ // 跳过下一个字节
+        continue
+      }
+    }
+    
+    if (byte >= 0xE0 && byte <= 0xEF && i + 2 < totalBytes) {
+      // 3字节UTF-8序列
+      const next1 = bytes[i + 1]
+      const next2 = bytes[i + 2]
+      if (next1 >= 0x80 && next1 <= 0xBF && next2 >= 0x80 && next2 <= 0xBF) {
+        utf8Score += 4
+        i += 2 // 跳过接下来的两个字节
+        continue
+      }
+    }
+    
+    // GBK编码检测 (简化版)
+    if (byte >= 0x81 && byte <= 0xFE && i + 1 < totalBytes) {
+      const next = bytes[i + 1]
+      if ((next >= 0x40 && next <= 0x7E) || (next >= 0x80 && next <= 0xFE)) {
+        gbkScore += 2
+        i++ // 跳过下一个字节
+        continue
+      }
+    }
+    
+    // 其他高位字节，可能是GBK
+    if (byte >= 0x80) {
+      gbkScore += 1
+    }
+  }
+  
+  // 根据得分判断编码
+  if (utf8Score > gbkScore * 1.2) {
+    return 'UTF-8'
+  } else if (gbkScore > utf8Score) {
+    return 'GBK'
+  }
+  
+  return 'UTF-8' // 默认UTF-8
+}
+
+// 验证文本内容是否正确解码
+const validateTextContent = (text) => {
+  // 检查是否包含大量乱码字符
+  const invalidChars = text.match(/[�]/g)
+  const invalidRatio = invalidChars ? invalidChars.length / text.length : 0
+  
+  // 如果乱码字符超过5%，认为解码失败
+  if (invalidRatio > 0.05) {
+    return false
+  }
+  
+  // 检查是否包含常见的中文字符
+  const chineseChars = text.match(/[\u4e00-\u9fff]/g)
+  const hasValidContent = chineseChars || text.match(/[a-zA-Z0-9]/g)
+  
+  return hasValidContent !== null
+}
+
+// 增强的文件读取函数
+const readFileAsText = async (file) => {
+  // 支持的编码列表，按优先级排序
+  const encodings = ['UTF-8', 'GBK', 'GB2312', 'UTF-16LE', 'UTF-16BE', 'ISO-8859-1']
+  
+  try {
+    // 首先读取文件为ArrayBuffer进行编码检测
+    const arrayBuffer = await readFileAsArrayBuffer(file)
+    const detectedEncoding = detectEncoding(arrayBuffer)
+    
+    console.log(`检测到文件编码: ${detectedEncoding}`)
+    
+    // 尝试使用检测到的编码读取文件
+    try {
+      const text = await readFileWithEncoding(file, detectedEncoding)
+      if (validateTextContent(text)) {
+        console.log(`成功使用 ${detectedEncoding} 编码读取文件`)
+        // 记录成功使用的编码
+        fileEncodings.value[file.name] = {
+          detected: detectedEncoding,
+          used: detectedEncoding,
+          success: true
+        }
+        return text
+      }
+    } catch (error) {
+      console.warn(`使用检测编码 ${detectedEncoding} 读取失败:`, error.message)
+    }
+    
+    // 如果检测的编码失败，尝试其他编码
+    for (const encoding of encodings) {
+      if (encoding === detectedEncoding) continue // 跳过已经尝试过的编码
+      
+      try {
+        const text = await readFileWithEncoding(file, encoding)
+        if (validateTextContent(text)) {
+          console.log(`成功使用备用编码 ${encoding} 读取文件`)
+          // 记录成功使用的编码
+          fileEncodings.value[file.name] = {
+            detected: detectedEncoding,
+            used: encoding,
+            success: true
+          }
+          return text
+        }
+      } catch (error) {
+        console.warn(`编码 ${encoding} 读取失败:`, error.message)
+        continue
+      }
+    }
+    
+    // 如果所有编码都失败，使用UTF-8作为最后的尝试
+    console.warn('所有编码尝试失败，使用UTF-8强制读取')
+    const text = await readFileWithEncoding(file, 'UTF-8')
+    // 记录强制使用的编码
+    fileEncodings.value[file.name] = {
+      detected: detectedEncoding,
+      used: 'UTF-8',
+      success: false,
+      fallback: true
+    }
+    return text
+    
+  } catch (error) {
+    console.error('文件读取完全失败:', error)
+    // 记录失败的编码信息
+    fileEncodings.value[file.name] = {
+      detected: 'unknown',
+      used: 'none',
+      success: false,
+      error: error.message
+    }
+    throw new Error(`文件读取失败: ${error.message}`)
+  }
+}
+
+// GBK编码转换 (简化版本，支持常用汉字)
+const gbkToUtf8 = (buffer) => {
+  const bytes = new Uint8Array(buffer)
+  let result = ''
+  
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = bytes[i]
+    
+    if (byte <= 0x7F) {
+      // ASCII字符
+      result += String.fromCharCode(byte)
+    } else if (byte >= 0x81 && byte <= 0xFE && i + 1 < bytes.length) {
+      // GBK双字节字符
+      const byte2 = bytes[i + 1]
+      if ((byte2 >= 0x40 && byte2 <= 0x7E) || (byte2 >= 0x80 && byte2 <= 0xFE)) {
+        // 这里使用一个简化的转换，实际应用中可能需要完整的GBK码表
+        // 对于常见的中文字符，我们尝试使用TextDecoder的fallback
+        try {
+          const gbkBytes = new Uint8Array([byte, byte2])
+          const decoder = new TextDecoder('gbk', { fatal: false })
+          const char = decoder.decode(gbkBytes)
+          if (char && char !== '�') {
+            result += char
+          } else {
+            // 如果解码失败，保留原始字节
+            result += String.fromCharCode(byte, byte2)
+          }
+        } catch {
+          // 如果TextDecoder不支持GBK，使用备用方案
+          result += String.fromCharCode(byte, byte2)
+        }
+        i++ // 跳过下一个字节
+      } else {
+        result += String.fromCharCode(byte)
+      }
+    } else {
+      result += String.fromCharCode(byte)
+    }
+  }
+  
+  return result
+}
+
+// 使用指定编码读取文件
+const readFileWithEncoding = async (file, encoding) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = (e) => resolve(e.target.result)
-    reader.onerror = reject
-    reader.readAsText(file, 'UTF-8')
+    
+    if (encoding === 'GBK' || encoding === 'GB2312') {
+      // 对于GBK/GB2312编码，先读取为ArrayBuffer然后转换
+      reader.onload = (e) => {
+        try {
+          const buffer = e.target.result
+          
+          // 尝试使用TextDecoder
+          try {
+            const decoder = new TextDecoder('gbk', { fatal: false })
+            const text = decoder.decode(buffer)
+            if (text && !text.includes('�')) {
+              resolve(text)
+              return
+            }
+          } catch (error) {
+            console.warn('TextDecoder GBK解码失败，使用备用方案')
+          }
+          
+          // 备用方案：简化的GBK转换
+          const text = gbkToUtf8(buffer)
+          resolve(text)
+        } catch (error) {
+          reject(new Error(`GBK编码解析失败: ${error.message}`))
+        }
+      }
+      
+      reader.onerror = () => {
+        reject(new Error(`文件读取错误: ${reader.error?.message || '未知错误'}`))
+      }
+      
+      reader.readAsArrayBuffer(file)
+    } else {
+      // 其他编码使用标准方法
+      reader.onload = (e) => {
+        try {
+          resolve(e.target.result)
+        } catch (error) {
+          reject(new Error(`编码 ${encoding} 解析失败: ${error.message}`))
+        }
+      }
+      
+      reader.onerror = () => {
+        reject(new Error(`文件读取错误: ${reader.error?.message || '未知错误'}`))
+      }
+      
+      reader.onabort = () => {
+        reject(new Error('文件读取被中断'))
+      }
+      
+      try {
+        // 对于一些浏览器不支持的编码，使用UTF-8作为备用
+        const supportedEncodings = ['UTF-8', 'UTF-16LE', 'UTF-16BE', 'ISO-8859-1']
+        const actualEncoding = supportedEncodings.includes(encoding) ? encoding : 'UTF-8'
+        
+        reader.readAsText(file, actualEncoding)
+      } catch (error) {
+        reject(new Error(`不支持的编码格式: ${encoding}`))
+      }
+    }
   })
 }
 
@@ -800,6 +1083,36 @@ const getTagType = (type) => {
       return 'info'
     default:
       return 'info'
+  }
+}
+
+// 获取编码标签类型
+const getEncodingTagType = (encodingInfo) => {
+  if (!encodingInfo) return 'info'
+  
+  if (encodingInfo.success && encodingInfo.detected === encodingInfo.used) {
+    return 'success' // 检测正确且成功
+  } else if (encodingInfo.success && encodingInfo.detected !== encodingInfo.used) {
+    return 'warning' // 检测错误但成功使用备用编码
+  } else if (encodingInfo.fallback) {
+    return 'warning' // 强制使用UTF-8
+  } else {
+    return 'danger' // 失败
+  }
+}
+
+// 获取编码显示文本
+const getEncodingDisplayText = (encodingInfo) => {
+  if (!encodingInfo) return '未知编码'
+  
+  if (encodingInfo.success && encodingInfo.detected === encodingInfo.used) {
+    return encodingInfo.used
+  } else if (encodingInfo.success && encodingInfo.detected !== encodingInfo.used) {
+    return `${encodingInfo.used} (检测: ${encodingInfo.detected})`
+  } else if (encodingInfo.fallback) {
+    return `${encodingInfo.used} (强制)`
+  } else {
+    return '解码失败'
   }
 }
 
@@ -935,6 +1248,15 @@ const exportData = () => {
   font-size: 16px;
   font-weight: bold;
   color: #409eff;
+}
+
+.encoding-info {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.encoding-tag {
+  font-size: 11px;
 }
 
 .stat-item {
