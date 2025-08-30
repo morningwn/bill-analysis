@@ -89,102 +89,199 @@
 
       <!-- 表格视图 -->
       <div v-if="viewMode === 'tables'" class="tables-container">
-        <el-row :gutter="20">
-          <!-- 平台统计表 -->
-          <el-col :span="6">
+        <!-- 平台统计表 -->
+        <div class="table-section">
+          <div class="table-header">
             <h4>平台统计</h4>
-            <el-table :data="platformStats" stripe border>
-              <el-table-column prop="platform" label="平台" width="100">
-                <template #default="scope">
-                  <el-tag :type="getPlatformTagType(scope.row.platform)">
-                    {{ scope.row.platform }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="count" label="交易数" align="right" />
-              <el-table-column prop="totalAmount" label="总金额" align="right">
-                <template #default="scope">
-                  <span class="amount-text">{{ scope.row.totalAmount.toFixed(2) }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="avgAmount" label="平均金额" align="right">
-                <template #default="scope">
-                  <span class="amount-text">{{ scope.row.avgAmount.toFixed(2) }}</span>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-col>
+            <el-tag size="small" type="info">{{ platformStats.length }} 个平台</el-tag>
+          </div>
+          <el-table :data="platformStats" stripe border class="stats-table">
+            <el-table-column prop="platform" label="平台" width="120">
+              <template #default="scope">
+                <el-tag :type="getPlatformTagType(scope.row.platform)">
+                  {{ scope.row.platform }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="count" label="交易数" align="right" width="100" />
+            <el-table-column prop="totalAmount" label="总金额 (元)" align="right" width="150">
+              <template #default="scope">
+                <span class="amount-text">{{ scope.row.totalAmount.toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="avgAmount" label="平均金额 (元)" align="right" width="150">
+              <template #default="scope">
+                <span class="amount-text">{{ scope.row.avgAmount.toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="占比" align="right" width="100">
+              <template #default="scope">
+                <span class="percentage-text">{{ ((scope.row.totalAmount / totalAmount) * 100).toFixed(1) }}%</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="totalAmount" label="金额条形图" min-width="200">
+              <template #default="scope">
+                <div class="progress-bar">
+                  <div 
+                    class="progress-fill" 
+                    :style="{ 
+                      width: ((scope.row.totalAmount / maxPlatformAmount) * 100) + '%',
+                      backgroundColor: getPlatformColor(scope.row.platform)
+                    }"
+                  ></div>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
-          <!-- 交易类型统计表 -->
-          <el-col :span="3">
+        <!-- 交易类型统计表 -->
+        <div class="table-section">
+          <div class="table-header">
             <h4>交易类型统计</h4>
-            <el-table :data="transactionTypeStats.slice(0, 8)" stripe border max-height="300">
-              <el-table-column prop="type" label="类型" show-overflow-tooltip />
-              <el-table-column prop="count" label="次数" align="right" width="60" />
-              <el-table-column prop="amount" label="金额" align="right" width="100">
-                <template #default="scope">
-                  <span class="amount-text">{{ scope.row.amount.toFixed(2) }}</span>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-col>
+            <el-tag size="small" type="info">Top {{ Math.min(transactionTypeStats.length, 10) }} 类型</el-tag>
+          </div>
+          <el-table :data="transactionTypeStats.slice(0, 10)" stripe border class="stats-table">
+            <el-table-column prop="type" label="交易类型" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="count" label="交易次数" align="right" width="100" />
+            <el-table-column prop="amount" label="总金额 (元)" align="right" width="150">
+              <template #default="scope">
+                <span class="amount-text">{{ scope.row.amount.toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="平均金额 (元)" align="right" width="150">
+              <template #default="scope">
+                <span class="amount-text">{{ (scope.row.amount / scope.row.count).toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="占比" align="right" width="100">
+              <template #default="scope">
+                <span class="percentage-text">{{ ((scope.row.amount / totalAmount) * 100).toFixed(1) }}%</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="amount" label="金额条形图" min-width="200">
+              <template #default="scope">
+                <div class="progress-bar">
+                  <div 
+                    class="progress-fill transaction-type-bar" 
+                    :style="{ width: ((scope.row.amount / maxTransactionTypeAmount) * 100) + '%' }"
+                  ></div>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
-          <!-- 支付方式统计表 -->
-          <el-col :span="3">
+        <!-- 支付方式统计表 -->
+        <div class="table-section">
+          <div class="table-header">
             <h4>支付方式统计</h4>
-            <el-table :data="paymentMethodStats.slice(0, 8)" stripe border max-height="300">
-              <el-table-column prop="method" label="方式" show-overflow-tooltip />
-              <el-table-column prop="count" label="次数" align="right" width="60" />
-              <el-table-column prop="amount" label="金额" align="right" width="100">
-                <template #default="scope">
-                  <span class="amount-text">{{ scope.row.amount.toFixed(2) }}</span>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-col>
+            <el-tag size="small" type="info">Top {{ Math.min(paymentMethodStats.length, 10) }} 方式</el-tag>
+          </div>
+          <el-table :data="paymentMethodStats.slice(0, 10)" stripe border class="stats-table">
+            <el-table-column prop="method" label="支付方式" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="count" label="使用次数" align="right" width="100" />
+            <el-table-column prop="amount" label="总金额 (元)" align="right" width="150">
+              <template #default="scope">
+                <span class="amount-text">{{ scope.row.amount.toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="平均金额 (元)" align="right" width="150">
+              <template #default="scope">
+                <span class="amount-text">{{ (scope.row.amount / scope.row.count).toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="占比" align="right" width="100">
+              <template #default="scope">
+                <span class="percentage-text">{{ ((scope.row.amount / totalAmount) * 100).toFixed(1) }}%</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="amount" label="金额条形图" min-width="200">
+              <template #default="scope">
+                <div class="progress-bar">
+                  <div 
+                    class="progress-fill payment-method-bar" 
+                    :style="{ width: ((scope.row.amount / maxPaymentMethodAmount) * 100) + '%' }"
+                  ></div>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
-          <!-- 分类统计表 -->
-          <el-col :span="12">
-            <h4>分类统计 (Top 8)</h4>
-            <el-table :data="categoryStats.slice(0, 10)" stripe border max-height="300">
-              <el-table-column prop="category" label="分类" show-overflow-tooltip />
-              <el-table-column prop="count" label="次数" align="right" width="80" />
-              <el-table-column prop="amount" label="金额" align="right" width="120">
-                <template #default="scope">
-                  <span class="amount-text">{{ scope.row.amount.toFixed(2) }}</span>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-col>
-        </el-row>
+        <!-- 分类统计表 -->
+        <div class="table-section">
+          <div class="table-header">
+            <h4>消费分类统计</h4>
+            <el-tag size="small" type="info">Top {{ Math.min(categoryStats.length, 15) }} 分类</el-tag>
+          </div>
+          <el-table :data="categoryStats.slice(0, 15)" stripe border class="stats-table">
+            <el-table-column prop="category" label="消费分类" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="count" label="交易次数" align="right" width="100" />
+            <el-table-column prop="amount" label="总金额 (元)" align="right" width="150">
+              <template #default="scope">
+                <span class="amount-text">{{ scope.row.amount.toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="平均金额 (元)" align="right" width="150">
+              <template #default="scope">
+                <span class="amount-text">{{ (scope.row.amount / scope.row.count).toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="占比" align="right" width="100">
+              <template #default="scope">
+                <span class="percentage-text">{{ ((scope.row.amount / totalAmount) * 100).toFixed(1) }}%</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="amount" label="金额条形图" min-width="200">
+              <template #default="scope">
+                <div class="progress-bar">
+                  <div 
+                    class="progress-fill category-bar" 
+                    :style="{ width: ((scope.row.amount / maxCategoryAmount) * 100) + '%' }"
+                  ></div>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
 
-        <el-row :gutter="20" style="margin-top: 20px;">
-          <!-- 日期统计表 -->
-          <el-col :span="24">
+        <!-- 每日交易统计表 -->
+        <div class="table-section">
+          <div class="table-header">
             <h4>每日交易统计</h4>
-            <el-table :data="dailyStats" stripe border max-height="400">
-              <el-table-column prop="date" label="日期" width="120" />
-              <el-table-column prop="count" label="交易数" align="right" width="100" />
-              <el-table-column prop="income" label="收入" align="right" width="120">
-                <template #default="scope">
-                  <span class="income-text">{{ scope.row.income.toFixed(2) }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="expense" label="支出" align="right" width="120">
-                <template #default="scope">
-                  <span class="expense-text">{{ scope.row.expense.toFixed(2) }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="net" label="净收入" align="right" width="120">
-                <template #default="scope">
-                  <span :class="scope.row.net >= 0 ? 'income-text' : 'expense-text'">
-                    {{ scope.row.net.toFixed(2) }}
-                  </span>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-col>
-        </el-row>
+            <el-tag size="small" type="info">{{ dailyStats.length }} 天数据</el-tag>
+          </div>
+          <el-table :data="dailyStats" stripe border class="stats-table" max-height="500">
+            <el-table-column prop="date" label="日期" width="120" fixed="left" />
+            <el-table-column prop="count" label="交易数" align="right" width="100" />
+            <el-table-column prop="income" label="收入 (元)" align="right" width="120">
+              <template #default="scope">
+                <span class="income-text">{{ scope.row.income.toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="expense" label="支出 (元)" align="right" width="120">
+              <template #default="scope">
+                <span class="expense-text">{{ scope.row.expense.toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="net" label="净收入 (元)" align="right" width="120">
+              <template #default="scope">
+                <span :class="scope.row.net >= 0 ? 'income-text' : 'expense-text'">
+                  {{ scope.row.net.toFixed(2) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="收支趋势" min-width="200">
+              <template #default="scope">
+                <div class="daily-trend-bar">
+                  <div class="trend-income" :style="{ width: getTrendWidth(scope.row.income, 'income') }"></div>
+                  <div class="trend-expense" :style="{ width: getTrendWidth(scope.row.expense, 'expense') }"></div>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
       </div>
     </el-card>
   </div>
@@ -645,6 +742,48 @@ const dailyStats = computed(() => {
   })).sort((a, b) => b.date.localeCompare(a.date))
 })
 
+// 计算总金额
+const totalAmount = computed(() => {
+  return processedData.value.reduce((sum, item) => sum + item.amount, 0)
+})
+
+// 计算各类统计的最大值，用于条形图
+const maxPlatformAmount = computed(() => {
+  return Math.max(...platformStats.value.map(item => item.totalAmount), 1)
+})
+
+const maxTransactionTypeAmount = computed(() => {
+  return Math.max(...transactionTypeStats.value.map(item => item.amount), 1)
+})
+
+const maxPaymentMethodAmount = computed(() => {
+  return Math.max(...paymentMethodStats.value.map(item => item.amount), 1)
+})
+
+const maxCategoryAmount = computed(() => {
+  return Math.max(...categoryStats.value.map(item => item.amount), 1)
+})
+
+const maxDailyAmount = computed(() => {
+  const maxIncome = Math.max(...dailyStats.value.map(item => item.income), 0)
+  const maxExpense = Math.max(...dailyStats.value.map(item => item.expense), 0)
+  return Math.max(maxIncome, maxExpense, 1)
+})
+
+// 辅助函数
+const getPlatformColor = (platform) => {
+  switch (platform) {
+    case '支付宝': return '#00A0E9'
+    case '微信': return '#07C160'
+    default: return '#909399'
+  }
+}
+
+const getTrendWidth = (value, type) => {
+  const percentage = (value / maxDailyAmount.value) * 100
+  return Math.max(percentage, 2) + '%'
+}
+
 // 图表选项
 const pieOptions = {
   responsive: true,
@@ -828,11 +967,125 @@ const getPlatformTagType = (platform) => {
   color: #F44336;
 }
 
+.percentage-text {
+  font-weight: 600;
+  font-family: 'Monaco', 'Menlo', monospace;
+  color: #606266;
+}
+
+/* 表格区域样式 */
+.table-section {
+  margin-bottom: 30px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 1px solid #dee2e6;
+}
+
+.table-header h4 {
+  margin: 0;
+  color: #333;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.stats-table {
+  margin: 0;
+}
+
+/* 条形图样式 */
+.progress-bar {
+  height: 20px;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.progress-fill.transaction-type-bar {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+}
+
+.progress-fill.payment-method-bar {
+  background: linear-gradient(90deg, #8B5CF6 0%, #06B6D4 100%);
+}
+
+.progress-fill.category-bar {
+  background: linear-gradient(90deg, #FF6B6B 0%, #4ECDC4 100%);
+}
+
+/* 每日趋势条形图 */
+.daily-trend-bar {
+  display: flex;
+  height: 20px;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.trend-income {
+  background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.trend-expense {
+  background: linear-gradient(90deg, #F44336 0%, #FF9800 100%);
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
 :deep(.el-table) {
   font-size: 14px;
 }
 
 :deep(.el-table th) {
-  background-color: #f5f7fa;
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+}
+
+:deep(.el-table td) {
+  padding: 12px 0;
+}
+
+:deep(.el-table--striped .el-table__body tr.el-table__row--striped td) {
+  background-color: #fafbfc;
+}
+
+:deep(.el-table__header-wrapper) {
+  border-radius: 0;
+}
+
+:deep(.el-table--border) {
+  border: none;
+}
+
+:deep(.el-table--border td, .el-table--border th) {
+  border-right: 1px solid #ebeef5;
+}
+
+:deep(.el-table--border th:first-child, .el-table--border td:first-child) {
+  border-left: none;
+}
+
+:deep(.el-table--border th:last-child, .el-table--border td:last-child) {
+  border-right: none;
 }
 </style>
