@@ -302,6 +302,7 @@ import { ElMessage } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
 import StatisticsView from './StatisticsView.vue'
+import wechatMappingConfig from '../config/wechat-transaction-mapping.json'
 
 // 响应式数据
 const selectedFiles = ref([])
@@ -617,6 +618,79 @@ const mapFieldNames = (headers, billType) => {
   return mappedHeaders
 }
 
+// 构建微信交易类型映射表（从JSON配置生成）
+const buildWechatTransactionTypeMapping = () => {
+  const mapping = {}
+  
+  // 遍历每个分类，将商户名映射到分类
+  Object.keys(wechatMappingConfig).forEach(category => {
+    if (category !== '关键词推断' && Array.isArray(wechatMappingConfig[category])) {
+      wechatMappingConfig[category].forEach(merchant => {
+        mapping[merchant] = category
+      })
+    }
+  })
+  
+  return mapping
+}
+
+// 生成映射表
+const wechatTransactionTypeMapping = buildWechatTransactionTypeMapping()
+
+// 根据交易对方智能映射交易类型
+const mapTransactionTypeByPayee = (payee, originalType, billType) => {
+  if (billType !== 'wechat' || !payee) {
+    return originalType
+  }
+  
+  // 清理交易对方名称，去除特殊字符和空格
+  const cleanPayee = payee.replace(/[()（）\[\]【】\s]/g, '').trim()
+  
+  // 精确匹配
+  if (wechatTransactionTypeMapping[cleanPayee]) {
+    console.log(`精确匹配: ${payee} -> ${wechatTransactionTypeMapping[cleanPayee]}`)
+    return wechatTransactionTypeMapping[cleanPayee]
+  }
+  
+  // 模糊匹配 - 优先匹配更长的关键词
+  const sortedKeywords = Object.keys(wechatTransactionTypeMapping).sort((a, b) => b.length - a.length)
+  
+  for (const keyword of sortedKeywords) {
+    const cleanKeyword = keyword.replace(/[()（）\[\]【】\s]/g, '').trim()
+    
+    // 检查交易对方是否包含关键词
+    if (cleanPayee.includes(cleanKeyword)) {
+      console.log(`模糊匹配: ${payee} 包含 ${keyword} -> ${wechatTransactionTypeMapping[keyword]}`)
+      return wechatTransactionTypeMapping[keyword]
+    }
+    
+    // 检查关键词是否包含在交易对方中（适用于简化的商户名）
+    if (cleanKeyword.includes(cleanPayee) && cleanPayee.length >= 2) {
+      console.log(`反向匹配: ${keyword} 包含 ${payee} -> ${wechatTransactionTypeMapping[keyword]}`)
+      return wechatTransactionTypeMapping[keyword]
+    }
+  }
+  
+  // 基于关键词的智能推断
+  const payeeLower = cleanPayee.toLowerCase()
+  const keywordInference = wechatMappingConfig['关键词推断']
+  
+  // 遍历所有分类的关键词进行匹配
+  for (const [category, keywords] of Object.entries(keywordInference)) {
+    if (Array.isArray(keywords)) {
+      for (const keyword of keywords) {
+        if (payeeLower.includes(keyword)) {
+          console.log(`关键词推断: ${payee} 包含关键词 "${keyword}" -> ${category}`)
+          return category
+        }
+      }
+    }
+  }
+  
+  // 如果没有匹配到，返回原始类型
+  return originalType || '其他消费'
+}
+
 // 解析并标准化账单数据
 const parseBillData = (rawData, headers, fileName) => {
   const billType = detectBillType(rawData, fileName)
@@ -683,6 +757,13 @@ const parseBillData = (rawData, headers, fileName) => {
         standardRow.paymentMethod = value.replace(/[()（）]/g, '').trim()
       }
     })
+    
+    // 应用自定义交易类型映射（基于交易对方）
+    standardRow.transactionType = mapTransactionTypeByPayee(
+      standardRow.payee, 
+      standardRow.transactionType, 
+      billType
+    )
     
     // 特殊处理：如果描述为空，使用交易类型作为描述
     if (!standardRow.description && standardRow.transactionType) {
@@ -806,7 +887,15 @@ const parseFiles = async () => {
       .map(([platform, count]) => `${platform}: ${count}条`)
       .join('，')
     
-    ElMessage.success(`多文件解析成功！共解析 ${totalRecords} 条记录 (${platformSummary})`)
+    // 统计微信交易类型映射情况
+    let mappingStats = ''
+    if (results.some(r => r.billType === 'wechat')) {
+      const wechatTransactions = allTransactions.filter(t => t.sourcePlatform === 'wechat')
+      const mappedCount = wechatTransactions.filter(t => t.transactionType && t.transactionType !== '其他消费').length
+      mappingStats = `，微信交易类型映射: ${mappedCount}/${wechatTransactions.length}`
+    }
+    
+    ElMessage.success(`多文件解析成功！共解析 ${totalRecords} 条记录 (${platformSummary}${mappingStats})`)
   } catch (error) {
     console.error('文件解析错误:', error)
     errorMessage.value = `解析失败: ${error.message}`
