@@ -1,29 +1,120 @@
-# bill-analysis
+# 账单分析工具
 
-This template should help get you started developing with Vue 3 in Vite.
+一个基于Vue 3的智能账单分析工具，支持解析支付宝和微信的账单文件，提供详细的数据统计和可视化分析。
 
-## Recommended IDE Setup
+## ✨ 功能特性
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+### 📁 文件支持
+- **支付宝账单**: CSV格式文件
+- **微信账单**: Excel格式文件
+- **多文件上传**: 支持同时上传多个账单文件
+- **智能编码**: 自动检测和处理多种文件编码（UTF-8、GBK等）
 
-## Customize configuration
+### 📊 数据解析
+- **智能识别**: 自动识别账单类型和格式
+- **字段映射**: 智能映射不同平台的字段名称
+- **数据清洗**: 自动处理和标准化数据格式
+- **交易分类**: 支持收入、支出、不计收支等类型
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+### 📈 统计分析
+- **基础统计**: 交易总数、总收入、总支出、净收入
+- **平台对比**: 不同支付平台的使用情况分析
+- **分类统计**: 消费分类的详细统计和排名
+- **交易类型**: 各种交易类型的分布分析
+- **支付方式**: 不同支付方式的使用频率统计
+- **时间趋势**: 每日收支变化趋势分析
 
-## Project Setup
+### 📊 可视化图表
+- **饼图**: 收支比例、平台分布、分类占比
+- **柱状图**: 平台对比、金额分布
+- **折线图**: 时间趋势分析
+- **环形图**: 分类统计展示
 
-```sh
+### 📋 数据展示
+- **详细表格**: 完整的交易明细列表
+- **统计表格**: 各维度的汇总统计表
+- **条形图**: 直观的数据对比可视化
+- **响应式设计**: 适配不同屏幕尺寸
+
+### 💾 数据导出
+- **JSON格式**: 结构化的数据导出
+- **完整信息**: 包含元数据和交易详情
+- **统计摘要**: 导出时自动生成统计摘要
+
+## 🚀 快速开始
+
+### 环境要求
+- Node.js 16+
+- npm 或 yarn
+
+### 安装依赖
+```bash
 npm install
 ```
 
-### Compile and Hot-Reload for Development
-
-```sh
+### 开发模式
+```bash
 npm run dev
 ```
 
-### Compile and Minify for Production
-
-```sh
+### 生产构建
+```bash
 npm run build
 ```
+
+## 📝 使用说明
+
+1. **上传文件**: 点击上传区域选择账单文件
+2. **文件解析**: 系统自动识别和解析文件内容
+3. **查看统计**: 切换到统计视图查看各种分析图表
+4. **导出数据**: 点击导出按钮下载JSON格式的分析结果
+
+## 🛠️ 技术栈
+
+- **前端框架**: Vue 3
+- **UI组件**: Element Plus
+- **图表库**: Chart.js + vue-chartjs
+- **文件处理**: SheetJS (xlsx)
+- **构建工具**: Vite
+- **样式**: CSS3 + Flexbox + Grid
+
+## 📂 项目结构
+
+```
+src/
+├── components/
+│   ├── FileUploader.vue    # 文件上传和解析组件
+│   └── StatisticsView.vue  # 统计分析和图表组件
+├── assets/
+│   ├── base.css           # 基础样式
+│   └── main.css           # 主样式文件
+├── App.vue                # 根组件
+└── main.js               # 应用入口
+```
+
+## 🎯 支持的账单格式
+
+### 支付宝账单
+- 文件格式: CSV
+- 编码支持: UTF-8, GBK
+- 关键字段: 交易时间、交易分类、交易对方、金额、收/付款方式
+
+### 微信账单
+- 文件格式: Excel (xlsx)
+- 关键字段: 交易时间、交易类型、交易对方、金额、支付方式
+
+## 🔧 自定义配置
+
+项目支持通过修改组件配置来适配更多账单格式，主要配置项：
+- 字段映射规则
+- 数据起始行检测
+- 金额格式处理
+- 日期格式解析
+
+## 📄 许可证
+
+MIT License
+
+## 🤝 贡献
+
+欢迎提交Issue和Pull Request来改进这个项目！
