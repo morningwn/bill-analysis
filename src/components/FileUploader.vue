@@ -130,18 +130,36 @@
       </el-row>
     </el-card>
 
+    <!-- 统计视图 -->
+    <StatisticsView 
+      v-if="parsedData.length > 0" 
+      :data="parsedData" 
+      :parse-results="parseResults"
+    />
+
     <!-- 数据预览 -->
     <el-card v-if="parsedData.length > 0" class="data-preview">
       <template #header>
         <div class="card-header">
           <span>明细数据 (共 {{ parsedData.length }} 条记录)</span>
-          <el-button type="primary" size="small" @click="exportData">
-            导出JSON
-          </el-button>
+          <div class="header-actions">
+            <el-button-group size="small">
+              <el-button 
+                :type="showTable ? 'primary' : ''"
+                @click="showTable = !showTable"
+              >
+                {{ showTable ? '隐藏' : '显示' }}明细
+              </el-button>
+            </el-button-group>
+            <el-button type="primary" size="small" @click="exportData" style="margin-left: 10px;">
+              导出JSON
+            </el-button>
+          </div>
         </div>
       </template>
       
       <el-table
+        v-if="showTable"
         :data="displayData"
         style="width: 100%"
         max-height="500"
@@ -210,7 +228,7 @@
       </el-table>
       
       <!-- 分页 -->
-      <div class="pagination-wrapper" v-if="parsedData.length > pageSize">
+      <div class="pagination-wrapper" v-if="showTable && parsedData.length > pageSize">
         <el-pagination
           v-model:current-page="currentPage"
           :page-size="pageSize"
@@ -238,6 +256,7 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
 import * as XLSX from 'xlsx'
+import StatisticsView from './StatisticsView.vue'
 
 // 响应式数据
 const selectedFiles = ref([])
@@ -249,6 +268,7 @@ const errorMessage = ref('')
 const currentPage = ref(1)
 const pageSize = ref(50)
 const parseResults = ref([]) // 存储每个文件的解析结果
+const showTable = ref(false) // 控制明细表格显示
 
 // 计算属性
 const displayData = computed(() => {
@@ -971,6 +991,11 @@ const exportData = () => {
 .card-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
   align-items: center;
 }
 
