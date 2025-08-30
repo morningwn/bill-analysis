@@ -182,6 +182,24 @@
           show-overflow-tooltip
         />
         <el-table-column
+          prop="交易类型"
+          label="交易类型"
+          width="120"
+          show-overflow-tooltip
+        >
+          <template #default="scope">
+            <el-tag 
+              v-if="scope.row['交易类型']"
+              type="info" 
+              size="small"
+              class="transaction-type-tag"
+            >
+              {{ scope.row['交易类型'] }}
+            </el-tag>
+            <span v-else class="no-data">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column
           prop="交易内容"
           label="交易内容"
           min-width="200"
@@ -193,6 +211,24 @@
           width="150"
           show-overflow-tooltip
         />
+        <el-table-column
+          prop="支付方式"
+          label="支付方式"
+          width="140"
+          show-overflow-tooltip
+        >
+          <template #default="scope">
+            <el-tag 
+              v-if="scope.row['支付方式']"
+              :type="getPaymentMethodTagType(scope.row['支付方式'])" 
+              size="small"
+              class="payment-method-tag"
+            >
+              {{ scope.row['支付方式'] }}
+            </el-tag>
+            <span v-else class="no-data">-</span>
+          </template>
+        </el-table-column>
         <el-table-column
           prop="金额"
           label="金额"
@@ -553,16 +589,22 @@ const mapFieldNames = (headers, billType) => {
     '类型': 'type',
     '收支类型': 'type',
     '收入': 'type',
-    '支出': 'type'
+    '支出': 'type',
+    
+    // 支付方式相关
+    '收/付款方式': 'paymentMethod',
+    '支付方式': 'paymentMethod',
+    '付款方式': 'paymentMethod',
+    '收款方式': 'paymentMethod'
   }
   
   // 根据账单类型调整映射策略
   if (billType === 'alipay') {
     // 支付宝特殊处理
-    fieldMapping['交易分类'] = 'category' // 支付宝的交易分类单独处理
+    fieldMapping['交易分类'] = 'transactionType' // 支付宝的交易分类映射为交易类型
   } else if (billType === 'wechat') {
     // 微信特殊处理
-    fieldMapping['交易类型'] = 'category' // 微信的交易类型单独处理
+    fieldMapping['交易类型'] = 'transactionType' // 微信的交易类型映射为交易类型
   }
   
   const mappedHeaders = {}
@@ -596,7 +638,8 @@ const parseBillData = (rawData, headers, fileName) => {
       payee: '',
       amount: '',
       type: '',
-      category: '', // 添加分类字段
+      transactionType: '', // 交易类型字段
+      paymentMethod: '', // 支付方式字段
       originalData: row // 保留原始数据用于调试
     }
     
@@ -633,14 +676,17 @@ const parseBillData = (rawData, headers, fileName) => {
         } else {
           standardRow.type = value
         }
-      } else if (mappedField === 'category') {
-        standardRow.category = value
+      } else if (mappedField === 'transactionType') {
+        standardRow.transactionType = value
+      } else if (mappedField === 'paymentMethod') {
+        // 清理和标准化支付方式信息
+        standardRow.paymentMethod = value.replace(/[()（）]/g, '').trim()
       }
     })
     
-    // 特殊处理：如果描述为空，使用分类作为描述
-    if (!standardRow.description && standardRow.category) {
-      standardRow.description = standardRow.category
+    // 特殊处理：如果描述为空，使用交易类型作为描述
+    if (!standardRow.description && standardRow.transactionType) {
+      standardRow.description = standardRow.transactionType
     }
     
     // 如果没有明确的收支类型，根据金额判断
@@ -734,11 +780,13 @@ const parseFiles = async () => {
     })
     
     // 设置标准化的列名
-    columns.value = ['交易时间', '交易内容', '收款人/付款方', '金额', '收支类型', '来源文件']
+    columns.value = ['交易时间', '交易类型', '交易内容', '收款人/付款方', '支付方式', '金额', '收支类型', '来源文件']
     parsedData.value = allTransactions.map(item => ({
       '交易时间': item.transactionTime,
+      '交易类型': item.transactionType,
       '交易内容': item.description,
       '收款人/付款方': item.payee,
+      '支付方式': item.paymentMethod,
       '金额': item.amount,
       '收支类型': item.type,
       '来源文件': getFileDisplayName(item.sourceFile)
@@ -1116,6 +1164,28 @@ const getEncodingDisplayText = (encodingInfo) => {
   }
 }
 
+// 获取支付方式标签类型
+const getPaymentMethodTagType = (paymentMethod) => {
+  if (!paymentMethod) return 'info'
+  
+  const method = paymentMethod.toLowerCase()
+  
+  // 银行卡相关
+  if (method.includes('银行') || method.includes('储蓄卡') || method.includes('信用卡')) {
+    return 'primary'
+  }
+  // 余额相关
+  if (method.includes('余额') || method.includes('零钱')) {
+    return 'success'
+  }
+  // 理财相关
+  if (method.includes('余额宝') || method.includes('理财') || method.includes('零钱通')) {
+    return 'warning'
+  }
+  // 其他支付方式
+  return 'info'
+}
+
 // 导出数据
 const exportData = () => {
   // 计算统计信息
@@ -1163,10 +1233,13 @@ const exportData = () => {
     transactions: parsedData.value.map((item, index) => ({
       id: index + 1,
       transactionTime: item['交易时间'] || '',
+      transactionType: item['交易类型'] || '',
       description: item['交易内容'] || '',
       payee: item['收款人/付款方'] || '',
+      paymentMethod: item['支付方式'] || '',
       amount: parseFloat(item['金额']?.replace(/[^\d.-]/g, '') || 0),
       type: item['收支类型'] || '',
+      sourceFile: item['来源文件'] || '',
       originalAmount: item['金额'] || ''
     }))
   }
@@ -1257,6 +1330,25 @@ const exportData = () => {
 
 .encoding-tag {
   font-size: 11px;
+}
+
+.transaction-type-tag {
+  background-color: #f0f9ff;
+  border-color: #0ea5e9;
+  color: #0c4a6e;
+}
+
+.no-data {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.payment-method-tag {
+  font-size: 12px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .stat-item {

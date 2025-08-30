@@ -54,15 +54,31 @@
 
         <el-row :gutter="20" style="margin-top: 20px;">
           <!-- 分类统计 -->
-          <el-col :span="12">
+          <el-col :span="6">
             <div class="chart-wrapper">
-              <h4>支出分类 (Top 10)</h4>
+              <h4>支出分类 (Top 8)</h4>
               <Doughnut :data="categoryData" :options="doughnutOptions" />
             </div>
           </el-col>
           
+          <!-- 交易类型统计 -->
+          <el-col :span="6">
+            <div class="chart-wrapper">
+              <h4>交易类型分布</h4>
+              <Pie :data="transactionTypeData" :options="pieOptions" />
+            </div>
+          </el-col>
+          
+          <!-- 支付方式统计 -->
+          <el-col :span="6">
+            <div class="chart-wrapper">
+              <h4>支付方式分布</h4>
+              <Pie :data="paymentMethodData" :options="pieOptions" />
+            </div>
+          </el-col>
+          
           <!-- 金额分布 -->
-          <el-col :span="12">
+          <el-col :span="6">
             <div class="chart-wrapper">
               <h4>交易金额分布</h4>
               <Bar :data="amountDistributionData" :options="amountBarOptions" />
@@ -75,7 +91,7 @@
       <div v-if="viewMode === 'tables'" class="tables-container">
         <el-row :gutter="20">
           <!-- 平台统计表 -->
-          <el-col :span="12">
+          <el-col :span="6">
             <h4>平台统计</h4>
             <el-table :data="platformStats" stripe border>
               <el-table-column prop="platform" label="平台" width="100">
@@ -99,9 +115,37 @@
             </el-table>
           </el-col>
 
+          <!-- 交易类型统计表 -->
+          <el-col :span="3">
+            <h4>交易类型统计</h4>
+            <el-table :data="transactionTypeStats.slice(0, 8)" stripe border max-height="300">
+              <el-table-column prop="type" label="类型" show-overflow-tooltip />
+              <el-table-column prop="count" label="次数" align="right" width="60" />
+              <el-table-column prop="amount" label="金额" align="right" width="100">
+                <template #default="scope">
+                  <span class="amount-text">{{ scope.row.amount.toFixed(2) }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-col>
+
+          <!-- 支付方式统计表 -->
+          <el-col :span="3">
+            <h4>支付方式统计</h4>
+            <el-table :data="paymentMethodStats.slice(0, 8)" stripe border max-height="300">
+              <el-table-column prop="method" label="方式" show-overflow-tooltip />
+              <el-table-column prop="count" label="次数" align="right" width="60" />
+              <el-table-column prop="amount" label="金额" align="right" width="100">
+                <template #default="scope">
+                  <span class="amount-text">{{ scope.row.amount.toFixed(2) }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-col>
+
           <!-- 分类统计表 -->
           <el-col :span="12">
-            <h4>分类统计 (Top 10)</h4>
+            <h4>分类统计 (Top 8)</h4>
             <el-table :data="categoryStats.slice(0, 10)" stripe border max-height="300">
               <el-table-column prop="category" label="分类" show-overflow-tooltip />
               <el-table-column prop="count" label="次数" align="right" width="80" />
@@ -202,6 +246,8 @@ const processedData = computed(() => {
       date: date,
       dateStr: date.toISOString().split('T')[0],
       category: item['交易内容'] || '其他',
+      transactionType: item['交易类型'] || '其他',
+      paymentMethod: item['支付方式'] || '其他',
       platform: item['来源文件']?.includes('支付宝') ? '支付宝' : 
                 item['来源文件']?.includes('微信') ? '微信' : '其他',
       type: item['收支类型'] || '其他'
@@ -362,7 +408,7 @@ const categoryData = computed(() => {
   
   const sortedCategories = Object.entries(categories)
     .sort(([,a], [,b]) => b - a)
-    .slice(0, 10)
+    .slice(0, 8)
   
   const labels = sortedCategories.map(([category]) => category)
   const data = sortedCategories.map(([, amount]) => amount)
@@ -371,6 +417,79 @@ const categoryData = computed(() => {
   const colors = [
     '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
     '#FF9F40', '#FF6384', '#C9CBCF', '#4BC0C0', '#FF6384'
+  ]
+  
+  return {
+    labels,
+    datasets: [{
+      data,
+      backgroundColor: colors.slice(0, data.length),
+      borderWidth: 2,
+      borderColor: '#fff'
+    }]
+  }
+})
+
+// 交易类型分布数据
+const transactionTypeData = computed(() => {
+  const transactionTypes = {}
+  
+  processedData.value.forEach(item => {
+    if (item.transactionType && item.transactionType !== '其他') {
+      const type = item.transactionType.substring(0, 15) // 限制长度
+      transactionTypes[type] = (transactionTypes[type] || 0) + item.amount
+    }
+  })
+  
+  const sortedTypes = Object.entries(transactionTypes)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 8) // 显示前8种类型
+  
+  const labels = sortedTypes.map(([type]) => type)
+  const data = sortedTypes.map(([, amount]) => amount)
+  
+  // 生成颜色
+  const colors = [
+    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+    '#FF9F40', '#FF6384', '#C9CBCF'
+  ]
+  
+  return {
+    labels,
+    datasets: [{
+      data,
+      backgroundColor: colors.slice(0, data.length),
+      borderWidth: 2,
+      borderColor: '#fff'
+    }]
+  }
+})
+
+// 支付方式分布数据
+const paymentMethodData = computed(() => {
+  const paymentMethods = {}
+  
+  processedData.value.forEach(item => {
+    if (item.paymentMethod && item.paymentMethod !== '其他') {
+      // 简化支付方式名称，去掉括号内容
+      let method = item.paymentMethod.replace(/[()（）]/g, '').trim()
+      // 限制长度
+      method = method.substring(0, 12)
+      paymentMethods[method] = (paymentMethods[method] || 0) + item.amount
+    }
+  })
+  
+  const sortedMethods = Object.entries(paymentMethods)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 8) // 显示前8种支付方式
+  
+  const labels = sortedMethods.map(([method]) => method)
+  const data = sortedMethods.map(([, amount]) => amount)
+  
+  // 生成颜色
+  const colors = [
+    '#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444',
+    '#6366F1', '#EC4899', '#84CC16'
   ]
   
   return {
@@ -432,6 +551,51 @@ const platformStats = computed(() => {
     totalAmount: stats.totalAmount,
     avgAmount: stats.totalAmount / stats.count
   })).sort((a, b) => b.totalAmount - a.totalAmount)
+})
+
+// 交易类型统计表数据
+const transactionTypeStats = computed(() => {
+  const transactionTypes = {}
+  
+  processedData.value.forEach(item => {
+    if (item.transactionType && item.transactionType !== '其他') {
+      const type = item.transactionType
+      if (!transactionTypes[type]) {
+        transactionTypes[type] = { count: 0, amount: 0 }
+      }
+      transactionTypes[type].count++
+      transactionTypes[type].amount += item.amount
+    }
+  })
+  
+  return Object.entries(transactionTypes).map(([type, stats]) => ({
+    type,
+    count: stats.count,
+    amount: stats.amount
+  })).sort((a, b) => b.amount - a.amount)
+})
+
+// 支付方式统计表数据
+const paymentMethodStats = computed(() => {
+  const paymentMethods = {}
+  
+  processedData.value.forEach(item => {
+    if (item.paymentMethod && item.paymentMethod !== '其他') {
+      let method = item.paymentMethod.replace(/[()（）]/g, '').trim()
+      method = method.substring(0, 12) // 限制长度
+      if (!paymentMethods[method]) {
+        paymentMethods[method] = { count: 0, amount: 0 }
+      }
+      paymentMethods[method].count++
+      paymentMethods[method].amount += item.amount
+    }
+  })
+  
+  return Object.entries(paymentMethods).map(([method, stats]) => ({
+    method,
+    count: stats.count,
+    amount: stats.amount
+  })).sort((a, b) => b.amount - a.amount)
 })
 
 // 分类统计表数据
