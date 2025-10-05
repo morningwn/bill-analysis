@@ -18,7 +18,9 @@ import FileUploader from './components/FileUploader.vue'
 <style scoped>
 .app-container {
   min-height: 100vh;
+  width: 100vw;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-sizing: border-box;
 }
 
 .app-header {
@@ -41,5 +43,7 @@ import FileUploader from './components/FileUploader.vue'
 
 main {
   padding: 0 20px 40px;
+  width: 100%;
+  box-sizing: border-box;
 }
 </style>

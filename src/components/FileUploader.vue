@@ -1349,8 +1349,10 @@ const exportData = () => {
 <style scoped>
 .file-uploader {
   padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100vw;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .upload-card {

@@ -1070,6 +1070,10 @@ const getPlatformTagType = (platform) => {
 <style scoped>
 .statistics-view {
   padding: 20px;
+  width: 100vw;
+  max-width: none;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .overview-card {
