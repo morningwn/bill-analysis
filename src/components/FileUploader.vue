@@ -153,13 +153,22 @@
           <span>明细数据 (共 {{ parsedData.length }} 条记录)</span>
           <div class="header-actions">
             <el-button-group size="small">
-              <el-button 
+              <el-button
                 :type="showTable ? 'primary' : ''"
                 @click="showTable = !showTable"
               >
                 {{ showTable ? '隐藏' : '显示' }}明细
               </el-button>
             </el-button-group>
+            <el-select
+              v-model="pageSize"
+              size="small"
+              style="margin-left: 10px; width: 120px;"
+              :disabled="!showTable"
+              placeholder="每页数量"
+            >
+              <el-option v-for="size in [10, 20, 50, 100, 200]" :key="size" :label="`${size} 条/页`" :value="size" />
+            </el-select>
             <el-button type="primary" size="small" @click="exportData" style="margin-left: 10px;">
               导出JSON
             </el-button>
@@ -178,13 +187,13 @@
         <el-table-column
           prop="交易时间"
           label="交易时间"
-          width="180"
+          min-width="120"
           show-overflow-tooltip
         />
         <el-table-column
           prop="交易类型"
           label="交易类型"
-          width="120"
+          min-width="100"
           show-overflow-tooltip
         >
           <template #default="scope">
@@ -202,19 +211,19 @@
         <el-table-column
           prop="交易内容"
           label="交易内容"
-          min-width="200"
+          min-width="160"
           show-overflow-tooltip
         />
         <el-table-column
           prop="收款人/付款方"
           label="收款人/付款方"
-          width="150"
+          min-width="120"
           show-overflow-tooltip
         />
         <el-table-column
           prop="支付方式"
           label="支付方式"
-          width="140"
+          min-width="100"
           show-overflow-tooltip
         >
           <template #default="scope">
@@ -232,7 +241,7 @@
         <el-table-column
           prop="金额"
           label="金额"
-          width="120"
+          min-width="80"
           align="right"
         >
           <template #default="scope">
@@ -242,7 +251,7 @@
         <el-table-column
           prop="收支类型"
           label="收支类型"
-          width="100"
+          min-width="80"
           align="center"
         >
           <template #default="scope">
@@ -258,7 +267,7 @@
           v-if="parseResults.length > 1"
           prop="来源文件"
           label="来源文件"
-          width="150"
+          min-width="120"
           show-overflow-tooltip
         >
           <template #default="scope">
