@@ -1348,10 +1348,13 @@ const exportData = () => {
 
 <style scoped>
 .file-uploader {
-  padding: 20px;
-  width: 100vw;
-  max-width: none;
-  margin: 0;
+  max-width: 100vw;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 32px;
+  padding-right: 32px;
+  padding-top: 20px;
+  padding-bottom: 20px;
   box-sizing: border-box;
 }
 
