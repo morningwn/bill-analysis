@@ -223,7 +223,7 @@
         <el-table-column
           prop="支付方式"
           label="支付方式"
-          min-width="100"
+          min-width="180"
           show-overflow-tooltip
         >
           <template #default="scope">
@@ -1448,10 +1448,11 @@ const exportData = () => {
 
 .payment-method-tag {
   font-size: 12px;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
+  word-break: break-all;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: unset;
 }
 
 .stat-item {
